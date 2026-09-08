@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// Paste this into: Firebase console -> Firestore Database -> Rules -> Publish.
+//
+// This requires a signed-in visitor (the app signs everyone in anonymously
+// and silently, with no login screen) before any read or write. It is a
+// basic gate against random internet traffic hitting the database directly
+// -- NOT a real per-technician permission system yet. When real technician
+// logins are added later, tighten this further (e.g. check custom claims
+// or a technicians collection) instead of just "any signed-in visitor."
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

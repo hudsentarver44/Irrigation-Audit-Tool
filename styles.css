@@ -1,32 +1,45 @@
 :root {
-  --bg: #eef1f0;
+  /* Storm Sprinklers brand palette (matched from stormsprinklers.com) */
+  --bg: #f4f6f8;
   --surface: #ffffff;
-  --surface-2: #f5f7f6;
-  --ink: #16262b;
-  --ink-soft: #4b5d61;
-  --border: #d7ddda;
-  --accent: #0b7285;
+  --surface-2: #f0f0f0;
+  --ink: #102341;
+  --ink-soft: #4a5568;
+  --border: #dde3e9;
+  --navy: #102341;
+  --pink: #f17388;
+  --pink-hover: #e05f75;
+  --medium-blue: #4c9bc8;
+  --light-blue: #c2e4f0;
+  --accent: #102341;
   --accent-ink: #ffffff;
-  --accent-2: #b5651d;
+  --accent-2: #f17388;
+  --accent-2-ink: #ffffff;
   --good: #2f9e44;
   --warn: #d9a326;
   --crit: #d64545;
-  --font-display: "Big Shoulders Display", "Arial Narrow", sans-serif;
-  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: "Fredoka", "Arial Rounded MT Bold", "Arial Narrow", sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "Courier New", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #10181a;
-    --surface: #172426;
-    --surface-2: #1d2c2f;
-    --ink: #e7efef;
-    --ink-soft: #a9bcbe;
-    --border: #2c3d40;
-    --accent: #34aebf;
+    --bg: #0d1626;
+    --surface: #16223b;
+    --surface-2: #1c2b47;
+    --ink: #e9edf5;
+    --ink-soft: #a9b6cc;
+    --border: #2c3d5c;
+    --navy: #4c9bc8;
+    --pink: #f17388;
+    --pink-hover: #ff8b9d;
+    --medium-blue: #6bb4dc;
+    --light-blue: #234a5e;
+    --accent: #4c9bc8;
     --accent-ink: #06161a;
-    --accent-2: #e0983f;
+    --accent-2: #f17388;
+    --accent-2-ink: #14100f;
     --good: #57c26b;
     --warn: #e8bd5a;
     --crit: #ea6b6b;
@@ -70,20 +83,33 @@ p { margin: 0.4em 0; }
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.7rem 1rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 1rem;
+  background: var(--navy);
+  border-bottom: 1px solid var(--navy);
   position: sticky;
   top: 0;
   z-index: 5;
   flex-wrap: wrap;
 }
-.brand {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.15rem;
-  color: var(--accent);
-  letter-spacing: 0.02em;
+.brand-logo {
+  height: 38px;
+  width: auto;
+  display: block;
+}
+.topbar .btn {
+  background: var(--surface);
+  color: var(--navy);
+  border-color: var(--surface);
+}
+.topbar .btn.ghost {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.topbar .btn.primary {
+  background: var(--pink);
+  border-color: var(--pink);
+  color: var(--accent-2-ink);
 }
 
 .page {
@@ -112,7 +138,7 @@ p { margin: 0.4em 0; }
   color: var(--ink);
   cursor: pointer;
 }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary { background: var(--accent-2); border-color: var(--accent-2); color: var(--accent-2-ink); }
 .btn.ghost { background: transparent; }
 .btn.danger { color: var(--crit); border-color: var(--crit); }
 .btn.small { padding: 0.35rem 0.6rem; font-size: 0.8rem; }
@@ -155,8 +181,8 @@ p { margin: 0.4em 0; }
 .tag-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.4rem 0 1rem; }
 
 .notice {
-  background: var(--surface-2);
-  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--light-blue) 40%, var(--surface));
+  border: 1px solid var(--medium-blue);
   border-radius: 10px;
   padding: 0.7rem 1rem;
   margin-bottom: 1rem;
@@ -234,7 +260,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .flag { font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; }
 .flag-over { background: color-mix(in srgb, var(--crit) 18%, var(--surface)); color: var(--crit); }
 .flag-under { background: color-mix(in srgb, var(--warn) 22%, var(--surface)); color: var(--warn); }
-.flag-mixed { background: color-mix(in srgb, var(--accent-2) 18%, var(--surface)); color: var(--accent-2); }
+.flag-mixed { background: color-mix(in srgb, var(--medium-blue) 20%, var(--surface)); color: var(--medium-blue); }
 
 .issue-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
 .issue-check { display: flex; align-items: center; gap: 0.4rem; font-weight: 500; color: var(--ink); margin: 0; }

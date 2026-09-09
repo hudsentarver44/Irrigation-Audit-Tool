@@ -62,10 +62,23 @@ to this repo (GitHub's "Add file -> Upload files," or edit directly in the
 browser with the pencil icon on a file), and GitHub Pages republishes
 automatically within a minute or two.
 
+## Branding
+
+Colors, fonts, and the logo in the top bar/report are matched to
+stormsprinklers.com: navy (`#102341`) for headers and structural text,
+coral pink (`#f17388`) for primary buttons, with sky blue and light grey as
+supporting accents -- all as CSS variables at the top of `styles.css`, so a
+brand refresh later just means changing values in one place. The status
+colors (good/warn/urgent -- green/amber/red) are left alone on purpose,
+since those need to read as "ok / caution / problem" regardless of brand.
+`storm-logo.png` is the logo file shown in the top bar and on the printed
+report; swap that file (same name) to update it.
+
 ## File map
 
 - `index.html` -- page shell
-- `styles.css` -- all visual styling
+- `styles.css` -- all visual styling, including the brand color/font variables
+- `storm-logo.png` -- the logo shown in the top bar and printed report
 - `firebase-init.js` -- Firebase project connection + anonymous sign-in
 - `db.js` -- reading/writing properties and visits in Firestore
 - `nozzles.js` -- the built-in nozzle/head flow lookup tables (by head type

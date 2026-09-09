@@ -9,9 +9,24 @@ gallons-per-property totals plus a printable client report.
 - Properties and visits saved to a real cloud database (Firebase Firestore) --
   works across your own devices, not just one browser.
 - Full zone walkthrough: schedule (with multiple run cycles for cycle-soak
-  systems), head/nozzle groups with a built-in flow lookup table, soil/sun/
-  slope, an issue checklist (severity + fixed-today/needs-follow-up), an
-  overall valve condition check, and a backflow-preventer/filter check.
+  systems), head/nozzle groups, soil/sun/slope, an issue checklist
+  (severity + fixed-today/needs-follow-up), an overall valve condition
+  check, and a single backflow-preventer/filter check (same 3 states --
+  Present/Missing/Leaking -- regardless of culinary vs. secondary water).
+- Head entry is brand-aware: pick the head type (rotor/spray/rotary), then
+  the actual brand/model on the ground (Hunter, Rain Bird, K-Rain, Toro),
+  then the specific nozzle -- each with its own real published GPM, radius,
+  and rated pressure, so the flow math reflects what's actually installed
+  instead of a generic guess. See `nozzles.js` for the full data and its
+  source notes.
+- If you enter the visit's static pressure reading, every head's GPM is
+  adjusted for that actual field pressure (not just the nozzle's catalog
+  rating), using the standard square-root pressure/flow relationship.
+  Leave it blank to use each nozzle's rated GPM as-is.
+- Rotor GPM does not change when you adjust arc (a gear-driven rotor has
+  one continuously-rotating stream -- arc changes coverage, not flow).
+  Spray and rotary/MP-style nozzles genuinely do flow less at a smaller
+  arc, so those scale as expected.
 - Automatic flags: mismatched head types sharing a zone, and a
   severely-over/under-watering flag based on a rough zone-size estimate (no
   measuring required).
@@ -53,8 +68,14 @@ automatically within a minute or two.
 - `styles.css` -- all visual styling
 - `firebase-init.js` -- Firebase project connection + anonymous sign-in
 - `db.js` -- reading/writing properties and visits in Firestore
-- `nozzles.js` -- the built-in nozzle/head flow lookup tables and dropdown
-  option lists (edit this file to add nozzle models or adjust flow values)
+- `nozzles.js` -- the built-in nozzle/head flow lookup tables (by head type
+  -> brand -> nozzle) and dropdown option lists. Edit this file to add
+  nozzle models, add a brand, or adjust a flow/pressure/radius value. A
+  comment at the top of the file flags which brands' numbers come from
+  clean multi-point manufacturer charts vs. which (mainly Toro, and
+  K-Rain's ranged charts) are best-effort estimates worth double-checking
+  against the manufacturer's own spec sheet if precision matters for a
+  specific job.
 - `calc.js` -- all the math (GPM, gallons, flags) -- no UI code
 - `app.js` -- the actual app: screens, forms, and button behavior
 - `firestore.rules` -- paste into the Firebase console; not used by the

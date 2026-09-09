@@ -12,6 +12,8 @@ let Store = null;
 import {
   HEAD_TYPES,
   HEAD_TYPE_ORDER,
+  HEAD_BRANDS,
+  nozzleOptionsFor,
   ARC_PRESETS,
   ZONE_SIZE_BUCKETS,
   PLANT_TARGETS,
@@ -113,23 +115,24 @@ function livePreview() {
       setPath(clone, path, val);
     } catch (e) {}
   });
+  const psi = clone.staticPressurePsi;
   clone.zones.forEach((z, zi) => {
     const card = root.querySelector(`.zone-card[data-zone-index="${zi}"]`);
     if (!card) return;
     const totalEl = card.querySelector(".zone-live-total");
     if (totalEl) {
-      totalEl.innerHTML = `Zone flow: <strong>${zoneTotalGPM(z).toFixed(2)} GPM</strong> &middot; ${fmtGal(zoneGalPerWeek(z))} gal/week`;
+      totalEl.innerHTML = `Zone flow: <strong>${zoneTotalGPM(z, psi).toFixed(2)} GPM</strong> &middot; ${fmtGal(zoneGalPerWeek(z, psi))} gal/week`;
     }
     const headRows = card.querySelectorAll(".head-row");
     z.heads.forEach((h, hi) => {
       const gpmEl = headRows[hi] && headRows[hi].querySelector(".head-gpm");
       if (gpmEl) {
-        const gpm = headUnitGPM(h) * (Number(h.qty) || 0);
+        const gpm = headUnitGPM(h, psi) * (Number(h.qty) || 0);
         gpmEl.textContent = `${gpm.toFixed(2)} GPM for this group`;
       }
     });
     let flagRow = card.querySelector(".flag-row");
-    const flags = zoneFlags(z);
+    const flags = zoneFlags(z, psi);
     const flagHtml = flags.map((f) => `<span class="flag flag-${f.level}">${esc(f.label)}</span>`).join("");
     if (flagRow) {
       flagRow.innerHTML = flagHtml;
@@ -169,7 +172,9 @@ function newRunCycle() {
   return { id: uid(), days: [], startTime: "06:00", minutes: 10 };
 }
 function newHead() {
-  return { id: uid(), type: "spray", spec: "8", arc: 360, qty: 1, flow: 0, brand: "" };
+  const brand = HEAD_BRANDS.spray[0].id;
+  const spec = nozzleOptionsFor("spray", brand)[0].id;
+  return { id: uid(), type: "spray", brand, spec, arc: 360, qty: 1, flow: 0 };
 }
 function newIssue(type) {
   return { id: uid(), type, severity: "Minor", fixed: false };
@@ -405,11 +410,9 @@ async function viewPropertyDetail(propertyId) {
 // =====================================================================
 function viewAuditEditor() {
   const a = state.draftAudit;
-  const backflowLabel = "Present";
-  const property = state.properties.find((p) => p.id === a.propertyId);
-  const isCulinary = !property || property.waterSource !== "secondary";
+  const psi = a.staticPressurePsi;
 
-  const zonesHtml = a.zones.map((z, zi) => zoneCardHtml(z, zi)).join("");
+  const zonesHtml = a.zones.map((z, zi) => zoneCardHtml(z, zi, psi)).join("");
 
   return `
     <header class="topbar">
@@ -432,8 +435,8 @@ function viewAuditEditor() {
           </label>
         </div>
         <div class="grid-2">
-          <label>Static pressure (PSI) <span class="optional">optional</span>
-            <input type="number" data-bind="staticPressurePsi" value="${esc(a.staticPressurePsi)}" />
+          <label>Static pressure (PSI) <span class="optional">optional</span> <span class="hint">adjusts nozzle GPM to actual field pressure</span>
+            <input type="number" oninput="App.livePreview()" data-bind="staticPressurePsi" value="${esc(a.staticPressurePsi)}" />
           </label>
           <label>Season length (weeks/year system runs)
             <input type="number" data-bind="seasonWeeks" value="${esc(a.seasonWeeks)}" />
@@ -447,7 +450,7 @@ function viewAuditEditor() {
           ).join("")}
         </div>
 
-        <label>${isCulinary ? "Backflow preventer" : "Filter"}</label>
+        <label>Backflow Preventer / Filter</label>
         <div class="chip-row">
           ${BACKFLOW_FILTER_STATES.map(
             (st) => `<button type="button" class="chip solo ${a.backflowFilterStatus === st ? "on" : ""}" onclick="App.setBackflowStatus('${st}')">${st}</button>`
@@ -467,9 +470,9 @@ function viewAuditEditor() {
     </main>`;
 }
 
-function zoneCardHtml(z, zi) {
-  const gpm = zoneTotalGPM(z);
-  const galWeek = zoneGalPerWeek(z);
+function zoneCardHtml(z, zi, measuredPsi) {
+  const gpm = zoneTotalGPM(z, measuredPsi);
+  const galWeek = zoneGalPerWeek(z, measuredPsi);
 
   const cyclesHtml = z.runCycles
     .map((c, ci) => {
@@ -494,7 +497,7 @@ function zoneCardHtml(z, zi) {
     .join("");
 
   const headsHtml = z.heads
-    .map((h, hi) => headRowHtml(h, zi, hi))
+    .map((h, hi) => headRowHtml(h, zi, hi, measuredPsi))
     .join("");
 
   const issuesHtml = ISSUE_TYPES.map((it) => {
@@ -521,7 +524,7 @@ function zoneCardHtml(z, zi) {
     </div>`;
   }).join("");
 
-  const flags = zoneFlags(z);
+  const flags = zoneFlags(z, measuredPsi);
   const flagsHtml = flags.length
     ? `<div class="flag-row">${flags.map((f) => `<span class="flag flag-${f.level}">${esc(f.label)}</span>`).join("")}</div>`
     : "";
@@ -588,15 +591,25 @@ function zoneCardHtml(z, zi) {
     </section>`;
 }
 
-function headRowHtml(h, zi, hi) {
+function headRowHtml(h, zi, hi, measuredPsi) {
   const def = HEAD_TYPES[h.type];
+
+  const brandField = def.hasBrand
+    ? `<label>Brand
+        <select onchange="App.setHeadBrand(${zi},${hi},this.value)">
+          ${HEAD_BRANDS[h.type].map((b) => `<option value="${b.id}" ${h.brand === b.id ? "selected" : ""}>${b.label}</option>`).join("")}
+        </select>
+      </label>`
+    : "";
+
+  const specOptions = def.hasBrand ? nozzleOptionsFor(h.type, h.brand) : [];
   const specField = def.manualFlow
     ? `<label>${def.flowLabel}
         <input type="number" step="0.01" oninput="App.livePreview()" data-bind="zones.${zi}.heads.${hi}.flow" value="${esc(h.flow)}" />
       </label>`
     : `<label>${def.specLabel}
         <select onchange="App.livePreview()" data-bind="zones.${zi}.heads.${hi}.spec">
-          ${def.specOptions.map((o) => `<option value="${o.value}" ${h.spec === o.value ? "selected" : ""}>${o.label}</option>`).join("")}
+          ${specOptions.map((o) => `<option value="${o.id}" ${h.spec === o.id ? "selected" : ""}>${o.label}</option>`).join("")}
         </select>
       </label>`;
 
@@ -610,16 +623,17 @@ function headRowHtml(h, zi, hi) {
       </div>`
     : "";
 
-  const gpm = headUnitGPM(h) * (Number(h.qty) || 0);
+  const gpm = headUnitGPM(h, measuredPsi) * (Number(h.qty) || 0);
 
   return `
     <div class="head-row">
-      <div class="grid-4">
+      <div class="${def.hasBrand ? "grid-5" : "grid-4"}">
         <label>Type
           <select onchange="App.setHeadType(${zi},${hi},this.value)">
             ${HEAD_TYPE_ORDER.map((k) => `<option value="${k}" ${h.type === k ? "selected" : ""}>${HEAD_TYPES[k].label}</option>`).join("")}
           </select>
         </label>
+        ${brandField}
         ${specField}
         <label>Qty
           <input type="number" min="0" oninput="App.livePreview()" data-bind="zones.${zi}.heads.${hi}.qty" value="${esc(h.qty)}" />
@@ -641,19 +655,24 @@ async function viewReport(auditId) {
   const totals = auditTotals(a);
   const cost = estimateCost(totals.galPerMonth, property && property.waterRatePerKGal);
   const seasonCost = estimateCost(totals.galPerSeason, property && property.waterRatePerKGal);
-  const isCulinary = !property || property.waterSource !== "secondary";
+  const psi = a.staticPressurePsi;
 
   const zonesHtml = a.zones
     .map((z) => {
-      const gpm = zoneTotalGPM(z);
-      const flags = zoneFlags(z);
+      const gpm = zoneTotalGPM(z, psi);
+      const flags = zoneFlags(z, psi);
       const heads = z.heads
         .filter((h) => (Number(h.qty) || 0) > 0)
         .map((h) => {
           const def = HEAD_TYPES[h.type];
-          const specLabel = def.manualFlow
-            ? `${h.flow} ${def.isGPH ? "GPH" : "GPM"}`
-            : (def.specOptions.find((o) => o.value === h.spec) || {}).label || h.spec;
+          let specLabel;
+          if (def.manualFlow) {
+            specLabel = `${h.flow} ${def.isGPH ? "GPH" : "GPM"}`;
+          } else {
+            const brandLabel = (HEAD_BRANDS[h.type] || []).find((b) => b.id === h.brand);
+            const nozLabel = nozzleOptionsFor(h.type, h.brand).find((o) => o.id === h.spec);
+            specLabel = `${brandLabel ? brandLabel.label + " " : ""}${nozLabel ? nozLabel.label : h.spec}`;
+          }
           const arc = def.hasArc ? `${h.arc}&deg;` : "";
           return `<tr><td>${h.qty}&times;</td><td>${def.label}</td><td>${specLabel}</td><td>${arc}</td></tr>`;
         })
@@ -673,7 +692,7 @@ async function viewReport(auditId) {
           <thead><tr><th>Qty</th><th>Type</th><th>Spec</th><th>Arc</th></tr></thead>
           <tbody>${heads || "<tr><td colspan=4>No heads recorded</td></tr>"}</tbody>
         </table>
-        <p class="report-line">Flow: <strong>${gpm.toFixed(2)} GPM</strong> &middot; ${fmtGal(zoneGalPerWeek(z))} gal/week &middot; ${fmtGal(zoneGalPerMonth(z))} gal/month &middot; ${fmtGal(zoneGalPerSeason(z, a.seasonWeeks))} gal/season</p>
+        <p class="report-line">Flow: <strong>${gpm.toFixed(2)} GPM</strong> &middot; ${fmtGal(zoneGalPerWeek(z, psi))} gal/week &middot; ${fmtGal(zoneGalPerMonth(z, psi))} gal/month &middot; ${fmtGal(zoneGalPerSeason(z, a.seasonWeeks, psi))} gal/season</p>
         ${flags.length ? `<p class="report-line">${flags.map((f) => `<span class="flag flag-${f.level}">${esc(f.label)}</span>`).join(" ")}</p>` : ""}
         ${issues ? `<ul class="report-issues">${issues}</ul>` : ""}
         ${z.repairsNote ? `<p class="report-line"><em>Repairs made: ${esc(z.repairsNote)}</em></p>` : ""}
@@ -699,7 +718,7 @@ async function viewReport(auditId) {
       </div>
 
       <div class="report-checks">
-        <span class="tag">${isCulinary ? "Backflow preventer" : "Filter"}: ${esc(a.backflowFilterStatus)}</span>
+        <span class="tag">Backflow Preventer / Filter: ${esc(a.backflowFilterStatus)}</span>
         <span class="tag">Valves: ${a.valveIssues.length ? a.valveIssues.map((k) => (VALVE_ISSUES.find((v) => v.key === k) || {}).label).join(", ") : "Good, no issues"}</span>
       </div>
 
@@ -871,7 +890,18 @@ const App = {
     const h = state.draftAudit.zones[zi].heads[hi];
     h.type = type;
     const def = HEAD_TYPES[type];
-    if (!def.manualFlow) h.spec = def.specOptions[0].value;
+    if (def.hasBrand) {
+      h.brand = HEAD_BRANDS[type][0].id;
+      h.spec = nozzleOptionsFor(type, h.brand)[0].id;
+    }
+    backupDraft();
+    render();
+  },
+  setHeadBrand(zi, hi, brand) {
+    syncDraftFromDOM("auditForm", "draftAudit");
+    const h = state.draftAudit.zones[zi].heads[hi];
+    h.brand = brand;
+    h.spec = nozzleOptionsFor(h.type, brand)[0].id;
     backupDraft();
     render();
   },
@@ -906,10 +936,16 @@ const App = {
 
   toggleValveIssue(key) {
     syncDraftFromDOM("auditForm", "draftAudit");
-    const arr = state.draftAudit.valveIssues;
-    const idx = arr.indexOf(key);
-    if (idx === -1) arr.push(key);
-    else arr.splice(idx, 1);
+    const a = state.draftAudit;
+    const idx = a.valveIssues.indexOf(key);
+    if (idx === -1) {
+      // "Good Condition" and actual issues are mutually exclusive: picking
+      // one clears the other.
+      if (key === "good") a.valveIssues = ["good"];
+      else a.valveIssues = a.valveIssues.filter((k) => k !== "good").concat(key);
+    } else {
+      a.valveIssues.splice(idx, 1);
+    }
     backupDraft();
     render();
   },
